@@ -103,7 +103,7 @@ class AttendanceApp:
 
         ttk.Separator(main_frame, orient="horizontal").pack(fill="x", pady=(0, 12))
 
-        # ----- File selection frame (with Save button next to Clear) -----
+        # ----- File selection frame -----
         file_frame = ttk.Frame(main_frame)
         file_frame.pack(fill="x", pady=(0, 10))
 
@@ -124,7 +124,6 @@ class AttendanceApp:
                                style="Danger.TButton")
         clear_btn.pack(side="left", padx=(0, 6))
 
-        # Save button – now beside Clear
         save_btn = ttk.Button(file_frame, text="💾 Save as Excel", command=self.save_result,
                               style="Primary.TButton")
         save_btn.pack(side="left")
@@ -158,7 +157,7 @@ class AttendanceApp:
         self.tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # ----- Bottom action bar (Quit and count label) -----
+        # ----- Bottom action bar -----
         bottom_frame = ttk.Frame(main_frame)
         bottom_frame.pack(fill="x", pady=(12, 0))
 
@@ -168,7 +167,7 @@ class AttendanceApp:
         self.count_label = ttk.Label(bottom_frame, text="", font=("Segoe UI", 9, "italic"))
         self.count_label.pack(side="right", padx=(0, 15))
 
-    # ---------- Methods (unchanged) ----------
+    # ---------- Methods ----------
     def browse_file(self):
         filename = filedialog.askopenfilename(
             title="Select Attendance Excel File",
@@ -193,6 +192,12 @@ class AttendanceApp:
 
             self.data = df.copy()
 
+            # ---------- Parse Join and Left with explicit format ----------
+            date_format = "%m/%d/%Y, %I:%M:%S %p"
+            df["Join_dt"] = pd.to_datetime(df["Join"], format=date_format, errors='coerce')
+            df["Left_dt"] = pd.to_datetime(df["Left"], format=date_format, errors='coerce')
+
+            # Parse existing Duration
             def parse_duration(dur_str):
                 if isinstance(dur_str, timedelta):
                     return dur_str
@@ -211,17 +216,36 @@ class AttendanceApp:
 
             df["Duration_TD"] = df["Duration"].apply(parse_duration)
 
+            # Validate and correct durations
+            df["True_Duration_TD"] = df["Left_dt"] - df["Join_dt"]
+
+            correction_count = 0
+            for idx, row in df.iterrows():
+                true_td = row["True_Duration_TD"]
+                given_td = row["Duration_TD"]
+                if pd.notna(true_td):
+                    if abs((true_td - given_td).total_seconds()) > 1:
+                        df.at[idx, "Duration_TD"] = true_td
+                        correction_count += 1
+
+            if correction_count > 0:
+                self.status.config(text=f"⚠️ Corrected {correction_count} duration mismatches")
+            else:
+                self.status.config(text="✅ All durations are consistent")
+
+            # Group by Name
             grouped = df.groupby("Name", as_index=False).agg({
                 "Join": "first",
                 "Left": "last",
                 "Duration_TD": "sum"
             })
 
+            # Format duration as "H:MM:SS" (no leading zero for hours)
             def format_timedelta(td):
                 total_seconds = int(td.total_seconds())
                 hours, rem = divmod(total_seconds, 3600)
                 minutes, seconds = divmod(rem, 60)
-                return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                return f"{hours}:{minutes:02d}:{seconds:02d}"
 
             grouped["Duration"] = grouped["Duration_TD"].apply(format_timedelta)
             grouped.drop("Duration_TD", axis=1, inplace=True)
