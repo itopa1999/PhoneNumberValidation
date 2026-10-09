@@ -8,6 +8,7 @@ from pathlib import Path
 import traceback
 import sys
 
+
 class WhatsAppLinkGenerator:
     def __init__(self, root):
         self.root = root
@@ -16,17 +17,33 @@ class WhatsAppLinkGenerator:
         self.root.configure(bg="#f0f4f8")
 
         self.default_message = (
-            "Hello {Name},\n\n"
-            "Congratulations! You have been selected as one of the candidates sponsored to participate in the *IBS Youth Entrepreneurial Development Programme (IBS-YEDP) Cohort 2*.\n\n"
-            "If you have not already joined the official WhatsApp group, please do so immediately. Important announcements, programme updates, orientation details, and instructions on accessing the programme before commencement will be communicated primarily through this group.\n\n"
-            "*Join the WhatsApp group using the link below:*\n\n"
-            "https://chat.whatsapp.com/Es6zmtqJlDtJMAwhNjLXj1?s=cl&p=a&ilr=1\n\n"
-            "To avoid missing any important information, we encourage you to join as soon as possible.\n\n"
-            "We look forward to welcoming you to the programme and wish you a rewarding learning experience.\n\n"
-            "Warm regards,\n\n"
-            "*School of Enterprise Management*\n"
-            "*Ibadan Business School (IBS)*\n"
-            "*IBS-YEDP Programme Team*"
+            "*Dear {{ firstname }} {{ othername }},*\n\n"
+            "*Congratulations!* You have been selected for *Cohort 2 of the IBS Youth Entrepreneurial Development Programme (IBS-YEDP)* on a *fully sponsored scholarship*.\n\n"
+
+            "*IMPORTANT: JOIN THE OFFICIAL WHATSAPP GROUP*\n\n"
+            "Please join the official WhatsApp group *immediately*. All important programme updates, announcements, class information, and other communication will be shared there.\n\n"
+            "👉 https://chat.whatsapp.com/Es6zmtqJlDtJMAwhNjLXj1?s=cl&p=a&ilr=1\n\n"
+
+            "*PROGRAMME DETAILS*\n"
+            "*Start Date:* Tuesday, 6th October 2026\n"
+            "*Days:* Tuesday & Friday\n"
+            "*Time:* 4:00 PM – 6:00 PM\n"
+            "*Mode:* Online via the IBS-YEDP LMS\n\n"
+
+            "*YOUR LMS LOGIN*\n"
+            "*Username:* {{ email }}\n"
+            "*Password:* {{ password }}\n"
+            "*LMS:* https://learn.ibsyedp.school/login/index.php\n\n"
+
+            "*LMS USER GUIDE*\n"
+            "Please read the step-by-step guide before your first class:\n"
+            "https://www.dropbox.com/scl/fi/6anl1bx7a7wprjhyajuqs/Student-LMS-Guide.pdf?rlkey=p4kkwtyqdrdlah49iuql0avyd&st=omqhmmu3&dl=0\n\n"
+
+            "*Need help?* Contact IBS-YEDP Support: *09120369651*\n\n"
+
+            "*Welcome to Cohort 2!* We look forward to having you with us.\n\n"
+            "*IBS-YEDP Programme Team*\n"
+            "*Ibadan Business School (IBS)*"
         )
 
         self.links = []
@@ -40,7 +57,7 @@ class WhatsAppLinkGenerator:
         # Title
         ttk.Label(main, text="📱 WhatsApp Link Generator (Excel)",
                   font=("Segoe UI", 16, "bold"), foreground="#1a2b3c").pack(anchor="w")
-        ttk.Label(main, text="Upload an Excel file, select the phone column, and personalize messages with placeholders like {Name}",
+        ttk.Label(main, text="Upload an Excel file, select the phone column, and personalize messages with placeholders like {{ Name }}",
                   font=("Segoe UI", 10), foreground="#5a6b7c").pack(anchor="w", pady=(0, 10))
 
         # ----- Top row: Excel & debug -----
@@ -76,7 +93,7 @@ class WhatsAppLinkGenerator:
                    style="Primary.TButton").pack(pady=2)
 
         # ----- Message area -----
-        msg_frame = ttk.LabelFrame(main, text="Message (use {ColumnName} placeholders)", padding=10)
+        msg_frame = ttk.LabelFrame(main, text="Message (use {{ColumnName}} or {ColumnName} placeholders)", padding=10)
         msg_frame.pack(fill="both", expand=True, pady=5)
 
         self.msg_text = scrolledtext.ScrolledText(msg_frame, height=10, font=("Segoe UI", 10))
@@ -143,6 +160,10 @@ class WhatsAppLinkGenerator:
             if df.empty:
                 messagebox.showerror("Error", "The Excel file is empty.")
                 return
+
+            # Strip whitespace from headers so "Firstname" and "Firstname " both work
+            df.columns = [str(c).strip() for c in df.columns]
+
             self.data = df.to_dict(orient='records')
             self.headers = list(df.columns)
 
@@ -151,7 +172,7 @@ class WhatsAppLinkGenerator:
             # Auto-detect phone column
             phone_col = None
             for col in self.headers:
-                if re.search(r'phone|number|mobile|cell', col, re.I):
+                if re.search(r'phone|number|mobile|cell|whatsapp|contact', col, re.I):
                     phone_col = col
                     break
             self.phone_combo['values'] = self.headers
@@ -170,6 +191,32 @@ class WhatsAppLinkGenerator:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to read Excel file:\n{str(e)}\n\n{traceback.format_exc()}")
             self.status.config(text="Error loading file")
+
+    # ---------- Placeholder helpers ----------
+
+    # Matches BOTH {{ name }} and { name } / {name}
+    # Group 1 = double-brace capture, Group 2 = single-brace capture
+    PLACEHOLDER_RE = re.compile(
+        r'\{\{\s*([^{}]+?)\s*\}\}'   # double braces
+        r'|'
+        r'\{\s*([^{}]+?)\s*\}'       # single braces
+    )
+
+    def _personalize(self, template: str, row: dict) -> str:
+        """
+        Replaces all {{ key }} and {key} placeholders in the template
+        with the value of that key in the row (case-insensitive).
+        Missing keys are replaced with an empty string.
+        """
+        # Build a case-insensitive lookup once per row
+        lookup = {str(k).strip().lower(): v for k, v in row.items()}
+
+        def repl(match: re.Match) -> str:
+            key = (match.group(1) or match.group(2)).strip().lower()
+            value = lookup.get(key, '')
+            return '' if value is None else str(value)
+
+        return self.PLACEHOLDER_RE.sub(repl, template)
 
     # ---------- Generate links ----------
     def generate_links(self):
@@ -192,29 +239,22 @@ class WhatsAppLinkGenerator:
                 messagebox.showwarning("Warning", "Please enter a message.")
                 return
 
-            placeholder_pattern = re.compile(r'\{([^}]+)\}')
-            placeholders = set(placeholder_pattern.findall(message))
-
             self.links = []
             skipped = 0
+
             for row in self.data:
                 phone_raw = str(row.get(self.phone_column, '')).strip()
                 if not phone_raw:
                     skipped += 1
                     continue
+
                 phone_clean = re.sub(r'[^\d]', '', phone_raw)
                 if not phone_clean:
                     skipped += 1
                     continue
 
-                personalized_msg = message
-                for placeholder in placeholders:
-                    value = row.get(placeholder, '')
-                    if value is None:
-                        value = ''
-                    personalized_msg = personalized_msg.replace(f'{{{placeholder}}}', str(value))
-
-                encoded_msg = urllib.parse.quote(personalized_msg)
+                personalized_msg = self._personalize(message, row)
+                encoded_msg = urllib.parse.quote(personalized_msg, safe='')
                 link = f"https://wa.me/{phone_clean}?text={encoded_msg}"
                 self.links.append(link)
 
@@ -227,7 +267,6 @@ class WhatsAppLinkGenerator:
                 status_text += f" Skipped {skipped} row(s) due to missing phone."
             self.status.config(text=status_text)
 
-            # Show debug info if no links
             if len(self.links) == 0:
                 self.show_debug_info()
 
@@ -243,7 +282,6 @@ class WhatsAppLinkGenerator:
             return
 
         phone_col = self.phone_combo.get() or "not selected"
-        # Build a debug message
         lines = []
         lines.append(f"Total rows: {len(self.data)}")
         lines.append(f"Headers: {self.headers}")
@@ -252,7 +290,6 @@ class WhatsAppLinkGenerator:
         for i, row in enumerate(self.data[:5]):
             lines.append(f"Row {i+1}: {row}")
 
-        # Also show the phone column values for the first 5
         if phone_col in self.headers:
             lines.append(f"\nPhone values (first 5, cleaned):")
             for i, row in enumerate(self.data[:5]):
@@ -262,6 +299,17 @@ class WhatsAppLinkGenerator:
         else:
             lines.append(f"\nPhone column '{phone_col}' not found in data headers.")
 
+        # Show which placeholders were detected in the current message
+        message = self.msg_text.get("1.0", tk.END).strip()
+        placeholders = set()
+        for m in self.PLACEHOLDER_RE.finditer(message):
+            placeholders.add((m.group(1) or m.group(2)).strip())
+        lines.append(f"\nPlaceholders detected in message: {sorted(placeholders)}")
+
+        if self.data:
+            lines.append("\nFirst row keys (case-insensitive lookup will use these):")
+            lines.append(f"  {list(self.data[0].keys())}")
+
         messagebox.showinfo("Debug Info", "\n".join(lines))
 
     # ---------- Show first generated link ----------
@@ -270,7 +318,6 @@ class WhatsAppLinkGenerator:
             messagebox.showinfo("First Link", "No links generated yet. Run 'Generate Links' first.")
             return
         first = self.links[0]
-        # Show in a message box and also open it
         messagebox.showinfo("First Link (copy from here)", first)
         try:
             webbrowser.open_new_tab(first)

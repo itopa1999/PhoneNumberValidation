@@ -25,7 +25,7 @@ class SourceAdderApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Attendance Source Adder (by Email/Phone)")
-        self.root.geometry("1300x700")
+        self.root.geometry("1400x700")
         self.root.configure(bg="#f0f4f8")
 
         self.setup_styles()
@@ -33,7 +33,6 @@ class SourceAdderApp:
         self.sponsor_path = tk.StringVar()
         self.att_path = tk.StringVar()
         self.result_data = []
-        self.unmatched_count = 0
 
         # ----- Main container -----
         main = ttk.Frame(root, padding="15")
@@ -51,12 +50,12 @@ class SourceAdderApp:
             "   • It reads the sponsorship file which is organised by sections (e.g., 'Sponsored Candidates From ...', 'PAID CANDIDATE').\n"
             "   • Each section title becomes the Source for the people listed under it.\n"
             "   • Matching is done by Email first, then Phone (if Email not found).\n"
-            "   • The output includes: Name, Email, Phone, Source, IDNumber, Join, Left, Duration.\n"
+            "   • The output keeps the Name, Email, Phone, IDNumber columns and adds a Source column.\n"
             "   • Unmatched records are reported – you can then manually correct them."
         )
         desc_label = ttk.Label(main, text=desc_text, font=("Segoe UI", 9),
                                foreground="#2a4b6c", background="#f0f4f8",
-                               justify="left", wraplength=1000)
+                               justify="left", wraplength=1100)
         desc_label.pack(anchor="w", pady=(0, 10))
 
         ttk.Separator(main, orient="horizontal").pack(fill="x", pady=(0, 10))
@@ -74,7 +73,7 @@ class SourceAdderApp:
         ttk.Entry(att_frame, textvariable=self.att_path, width=60).pack(side="left", fill="x", expand=True, padx=(0, 8))
         ttk.Button(att_frame, text="Browse", command=lambda: self.browse_file(self.att_path)).pack(side="left")
 
-        # Toolbar with Save button next to Clear
+        # Toolbar
         btn_frame = ttk.Frame(main)
         btn_frame.pack(fill="x", pady=10)
 
@@ -89,26 +88,25 @@ class SourceAdderApp:
         self.status = ttk.Label(main, text="Ready", relief="sunken", anchor="w", style="Status.TLabel")
         self.status.pack(fill="x", pady=(5, 10))
 
-        # Treeview – Source, then IDNumber, then times
+        # Treeview – original attendance columns + Source appended
         tree_frame = ttk.Frame(main)
         tree_frame.pack(fill="both", expand=True)
 
-        columns = ("Name", "Email", "Phone", "Source", "IDNumber", "Join", "Left", "Duration")
-        self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=18)
+        columns = ("Name", "Email", "Phone", "IDNumber", "Source")
+        self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=20)
 
-        col_widths = {"Name": 180, "Email": 200, "Phone": 120, "Source": 200,
-                      "IDNumber": 150, "Join": 130, "Left": 130, "Duration": 100}
+        col_widths = {"Name": 220, "Email": 260, "Phone": 150, "IDNumber": 180, "Source": 260}
         for col in columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=col_widths.get(col, 120),
-                             anchor="w" if col=="Name" else "center")
+            self.tree.column(col, width=col_widths.get(col, 150),
+                             anchor="w" if col in ("Name", "Email", "Source") else "center")
 
         scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Bottom bar (Quit + count label)
+        # Bottom bar
         bottom = ttk.Frame(main)
         bottom.pack(fill="x", pady=10)
         ttk.Button(bottom, text="Quit", command=root.quit,
@@ -149,7 +147,6 @@ class SourceAdderApp:
 
         try:
             self.status.config(text="Parsing sponsorship file...")
-            # New parser returns email_to_source and phone_to_source
             email_to_source, phone_to_source = self.parse_sponsorship(self.sponsor_path.get())
             if not email_to_source and not phone_to_source:
                 messagebox.showerror("Error", "No sponsorship data found.")
@@ -182,7 +179,6 @@ class SourceAdderApp:
                         source = phone_to_source[cleaned]
                         matched_count += 1
                     else:
-                        # Also try each part of multi‑phone numbers
                         phone_parts = parse_phone_list(phone)
                         for p in phone_parts:
                             if p in phone_to_source:
@@ -198,11 +194,8 @@ class SourceAdderApp:
                     "Name": name,
                     "Email": email,
                     "Phone": phone,
-                    "Source": source,
                     "IDNumber": idnumber,
-                    "Join": att["join"],
-                    "Left": att["left"],
-                    "Duration": att["duration"]
+                    "Source": source,
                 }
                 self.result_data.append(row)
 
@@ -223,7 +216,7 @@ class SourceAdderApp:
             messagebox.showerror("Error", f"Processing failed:\n{str(e)}")
             self.status.config(text="❌ Error")
 
-    # ---------- Parsers ----------
+    # ---------- Sponsorship parser ----------
     def parse_sponsorship(self, filepath):
         """
         Parses the sponsorship file which is organised by sections.
@@ -235,17 +228,10 @@ class SourceAdderApp:
         email_to_source = {}
         phone_to_source = {}
 
-        # We will scan rows, detect section headers, and assign the current source to rows that follow.
-        current_source = ""
-        # Identify which column holds the section title and which columns hold email/phone.
-        # Usually the header row has "Email Address" and "Phone No."; we can detect those.
-        # Also we need to find the section title column – it is usually in column D (index 3)
-        # but we can be flexible.
         email_col = None
         phone_col = None
-        section_title_col = None  # will be the column where section titles appear
 
-        # First, find the header row that contains "Email Address" and "Phone No."
+        # Find the header row that contains "Email Address" and "Phone No."
         header_row = None
         for row in ws.iter_rows(values_only=True):
             if all(c is None for c in row):
@@ -253,7 +239,6 @@ class SourceAdderApp:
             row_str = [str(c).strip().lower() if c is not None else "" for c in row]
             if "email address" in " ".join(row_str).lower() and "phone no." in " ".join(row_str).lower():
                 header_row = row
-                # find indices
                 for idx, val in enumerate(row_str):
                     if "email" in val:
                         email_col = idx
@@ -262,52 +247,38 @@ class SourceAdderApp:
                 break
 
         if email_col is None or phone_col is None:
-            # Fallback: assume columns: S/N (0), blank (1), Email (2), Full Name (3), Phone (4)...
-            # So email_col = 2, phone_col = 4.
+            # Fallback: assume columns: S/N (0), blank (1), Email (2), Full Name (3), Phone (4)
             email_col = 2
             phone_col = 4
-            # We'll still need to find section titles; they are usually in column 3 (D) but could be elsewhere.
-            # We'll scan for rows where the first few columns are empty except one that contains a title.
-            # We'll set section_title_col = 3 (index 3) as a guess.
-            section_title_col = 3
 
-        # Now iterate rows, detecting section headers and populating dicts.
-        # We'll track current source.
         current_source = ""
         for row in ws.iter_rows(values_only=True):
             if all(c is None for c in row):
                 continue
-            # Check if this row is a section header: it will have a string like "SPONSORED CANDIDATES FROM ..." or "PAID CANDIDATE"
-            # It may be in column D (index 3) or possibly elsewhere.
-            # We'll check multiple columns (0 to 5) for a pattern.
+
+            # Section header detection
             is_section = False
             section_text = ""
-            for idx, val in enumerate(row):
+            for val in row:
                 if val is None:
                     continue
                 s = str(val).strip()
-                # Look for keywords
-                if "SPONSORED CANDIDATES FROM" in s.upper() or "PAID CANDIDATE" in s.upper() or "SPONSOR CANDIDATES" in s.upper():
+                if ("SPONSORED CANDIDATES FROM" in s.upper()
+                        or "PAID CANDIDATE" in s.upper()
+                        or "SPONSOR CANDIDATES" in s.upper()):
                     is_section = True
                     section_text = s
-                    # Also note the column where this appears for future rows? We'll use a fixed set of columns to check.
                     break
             if is_section:
-                # This is a section header; set current source.
-                # Clean up: remove leading/trailing spaces, keep as is.
                 current_source = section_text.strip()
                 continue
 
-            # Skip the header row (already processed)
             if header_row is not None and row == header_row:
                 continue
 
-            # Skip rows that look like the section header sub-row (like "|  | S/N |  | ...")
-            # They often have "S/N" in first col.
             if row[0] is not None and "S/N" in str(row[0]).upper():
                 continue
 
-            # Now, if we have a current_source, extract email and phone from this row.
             if current_source:
                 email = ""
                 phone = ""
@@ -317,28 +288,27 @@ class SourceAdderApp:
                     phone_raw = str(row[phone_col]).strip() if row[phone_col] else ""
                     phone = clean_phone(phone_raw)
 
-                # Only store if we have at least an email or phone
-                if email or phone:
-                    if email:
-                        email_to_source[email.lower()] = current_source
-                    if phone:
-                        # Also store each part if comma separated
-                        phone_parts = parse_phone_list(phone)
-                        for p in phone_parts:
-                            if p:
-                                phone_to_source[p] = current_source
+                if email:
+                    email_to_source[email.lower()] = current_source
+                if phone:
+                    for p in parse_phone_list(phone):
+                        if p:
+                            phone_to_source[p] = current_source
 
         return (email_to_source, phone_to_source)
 
+    # ---------- Attendance parser ----------
     def parse_attendance(self, filepath):
-        """Return list of dicts: name, email, phone, idnumber, join, left, duration."""
+        """
+        Reads the attendance file and returns a list of dicts
+        containing: name, email, phone, idnumber.
+        """
         wb = load_workbook(filepath, data_only=True)
         ws = wb.active
 
         header_row = None
         col_map = {}
 
-        # Find header row by scanning for keywords
         for row in ws.iter_rows(values_only=True):
             if all(c is None for c in row):
                 continue
@@ -346,27 +316,24 @@ class SourceAdderApp:
             found = {}
             for idx, val in enumerate(row_str):
                 val_lower = val.lower()
-                if "name" in val_lower:
+                # Check idnumber first so "id" doesn't accidentally grab "idnumber"
+                if "idnumber" in val_lower or "id number" in val_lower or "id no" in val_lower:
+                    found["idnumber"] = idx
+                elif "name" in val_lower:
                     found["name"] = idx
                 elif "email" in val_lower:
                     found["email"] = idx
                 elif "phone" in val_lower:
                     found["phone"] = idx
-                elif "idnumber" in val_lower or "id" in val_lower:
+                elif "id" in val_lower and "idnumber" not in found:
                     found["idnumber"] = idx
-                elif "join" in val_lower:
-                    found["join"] = idx
-                elif "left" in val_lower:
-                    found["left"] = idx
-                elif "duration" in val_lower:
-                    found["duration"] = idx
-            if "name" in found and "join" in found and "left" in found and "duration" in found:
+            if "name" in found:
                 col_map = found
                 header_row = row
                 break
 
         if not col_map:
-            # Fallback: assume order: Name, Email, Phone, IDNumber, Join, Left, Duration
+            # Fallback: assume Name, Email, Phone, IDNumber in cols 0,1,2,3
             first_row = None
             for row in ws.iter_rows(values_only=True):
                 if all(c is None for c in row):
@@ -374,15 +341,10 @@ class SourceAdderApp:
                 first_row = row
                 break
             if first_row:
-                row_str = [str(c).strip().lower() if c else "" for c in first_row]
-                if any("name" in s for s in row_str):
-                    col_map = {"name": 0, "email": 1, "phone": 2, "idnumber": 3,
-                               "join": 4, "left": 5, "duration": 6}
-                    header_row = first_row
-                else:
-                    col_map = {"name": 0, "email": 1, "phone": 2, "idnumber": 3,
-                               "join": 4, "left": 5, "duration": 6}
-                    header_row = None
+                col_map = {"name": 0, "email": 1, "phone": 2, "idnumber": 3}
+                header_row = first_row
+            else:
+                return []
 
         att_list = []
         for row in ws.iter_rows(values_only=True):
@@ -397,29 +359,21 @@ class SourceAdderApp:
             if not name:
                 continue
 
-            email = str(row[col_map.get("email", 0)]).strip() if "email" in col_map and row[col_map["email"]] else ""
-            phone = str(row[col_map.get("phone", 0)]).strip() if "phone" in col_map and row[col_map["phone"]] else ""
-            idnumber = str(row[col_map.get("idnumber", 0)]).strip() if "idnumber" in col_map and row[col_map["idnumber"]] else ""
-            join = row[col_map["join"]]
-            left = row[col_map["left"]]
-            dur = row[col_map["duration"]]
-
-            if isinstance(dur, (int, float)):
-                h = int(dur // 3600)
-                m = int((dur % 3600) // 60)
-                s = int(dur % 60)
-                dur_str = f"{h:02d}:{m:02d}:{s:02d}"
-            else:
-                dur_str = str(dur).strip()
+            email = ""
+            if "email" in col_map and col_map["email"] < len(row) and row[col_map["email"]]:
+                email = str(row[col_map["email"]]).strip()
+            phone = ""
+            if "phone" in col_map and col_map["phone"] < len(row) and row[col_map["phone"]]:
+                phone = str(row[col_map["phone"]]).strip()
+            idnumber = ""
+            if "idnumber" in col_map and col_map["idnumber"] < len(row) and row[col_map["idnumber"]]:
+                idnumber = str(row[col_map["idnumber"]]).strip()
 
             att_list.append({
                 "name": name,
                 "email": email,
                 "phone": phone,
                 "idnumber": idnumber,
-                "join": join,
-                "left": left,
-                "duration": dur_str
             })
 
         return att_list
@@ -433,11 +387,8 @@ class SourceAdderApp:
                 row["Name"],
                 row["Email"],
                 row["Phone"],
-                row["Source"],
                 row["IDNumber"],
-                row["Join"],
-                row["Left"],
-                row["Duration"]
+                row["Source"],
             )
             self.tree.insert("", "end", values=values)
 
@@ -458,7 +409,7 @@ class SourceAdderApp:
                 ws = wb.active
                 ws.title = "Enriched Attendance"
 
-                headers = ["Name", "Email", "Phone", "Source", "IDNumber", "Join", "Left", "Duration"]
+                headers = ["Name", "Email", "Phone", "IDNumber", "Source"]
                 for col_idx, hdr in enumerate(headers, 1):
                     ws.cell(row=1, column=col_idx, value=hdr)
 
@@ -466,20 +417,17 @@ class SourceAdderApp:
                     ws.cell(row=row_idx, column=1, value=row["Name"])
                     ws.cell(row=row_idx, column=2, value=row["Email"])
                     ws.cell(row=row_idx, column=3, value=row["Phone"])
-                    ws.cell(row=row_idx, column=4, value=row["Source"])
-                    ws.cell(row=row_idx, column=5, value=row["IDNumber"])
-                    ws.cell(row=row_idx, column=6, value=row["Join"])
-                    ws.cell(row=row_idx, column=7, value=row["Left"])
-                    ws.cell(row=row_idx, column=8, value=row["Duration"])
+                    ws.cell(row=row_idx, column=4, value=row["IDNumber"])
+                    ws.cell(row=row_idx, column=5, value=row["Source"])
 
-                for col_idx in range(1, 9):
+                for col_idx in range(1, 6):
                     col_letter = get_column_letter(col_idx)
                     max_len = max(len(headers[col_idx-1]), 10)
                     for row_idx in range(2, len(self.result_data)+2):
                         val = ws.cell(row=row_idx, column=col_idx).value
                         if val:
                             max_len = max(max_len, len(str(val)))
-                    ws.column_dimensions[col_letter].width = min(max_len + 2, 40)
+                    ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
 
                 wb.save(file_path)
                 messagebox.showinfo("Success", f"File saved to:\n{file_path}")
