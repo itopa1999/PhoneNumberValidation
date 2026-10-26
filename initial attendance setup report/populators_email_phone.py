@@ -468,7 +468,7 @@ class EmailPhoneAdderApp:
 
         data = []
         for row in ws.iter_rows(values_only=True):
-            if row == header_row or all(c is None for c in row):
+            if list(row) == header_row or all(c is None for c in row):
                 continue
             if len(row) <= max_needed:
                 continue

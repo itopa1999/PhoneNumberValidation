@@ -28,15 +28,15 @@ class EmailLinkGenerator:
         self.root.configure(bg="#f0f4f8")
 
         # ---------- Default subject ----------
-        # self.default_subject = (
-        #     "Congratulations! You've successfully enrolled for the "
-        #     "IBS Youth Entrepreneurial Development Programme (IBS-YEDP) "
-        # )
-
         self.default_subject = (
-            "Congratulations! You've Been Selected for the IBS Youth "
-            "Entrepreneurial Development Programme (IBS-YEDP)"
+            "Congratulations! You've successfully enrolled for the "
+            "IBS Youth Entrepreneurial Development Programme (IBS-YEDP) "
         )
+
+        # self.default_subject = (
+        #     "Congratulations! You've Been Selected for the IBS Youth "
+        #     "Entrepreneurial Development Programme (IBS-YEDP)"
+        # )
 
         # ---------- Default body ----------
         self.default_body = (
@@ -44,13 +44,13 @@ class EmailLinkGenerator:
 
     "<strong>Congratulations once again!</strong>\n\n"
 
-    # "We confirm that your <strong>₦50,000 payment for participation in the IBS Youth Entrepreneurial Development Programme (IBS-YEDP)</strong> has been received, and your place in <strong>Cohort 2</strong> has been confirmed.\n\n"
+    "We confirm that your <strong>₦50,000 payment for participation in the IBS Youth Entrepreneurial Development Programme (IBS-YEDP)</strong> has been received, and your place in <strong>Cohort 2</strong> has been confirmed.\n\n"
 
-    "You have been selected to participate in <strong>Cohort 2 of the Ibadan Business School Youth Entrepreneurial Development Programme (IBS-YEDP)</strong> on a <strong>fully sponsored scholarship.</strong>\n\n"
+    # "You have been selected to participate in <strong>Cohort 2 of the Ibadan Business School Youth Entrepreneurial Development Programme (IBS-YEDP)</strong> on a <strong>fully sponsored scholarship.</strong>\n\n"
 
     "<strong>🚨 IMPORTANT: JOIN THE WHATSAPP GROUP</strong>\n\n"
     "Please join the official WhatsApp group immediately. Important programme updates, announcements, class information, and other communication will be shared there.\n\n"
-    "<strong>WhatsApp Group:</strong> https://chat.whatsapp.com/Es6zmtqJlDtJMAwhNjLXj1?s=cl&p=a&ilr=1\n\n"
+    "<strong>WhatsApp Group:</strong> https://chat.whatsapp.com/CokjIkZ4Rns6ZzPlwyPQSf?s=cl&p=a&mlu=4&ilr=4\n\n"
 
     "<strong>Programme Details</strong>\n\n"
     "<strong>Duration:</strong> 3 Months\n"

@@ -22,7 +22,7 @@ class WhatsAppLinkGenerator:
 
             "*IMPORTANT: JOIN THE OFFICIAL WHATSAPP GROUP*\n\n"
             "Please join the official WhatsApp group *immediately*. All important programme updates, announcements, class information, and other communication will be shared there.\n\n"
-            "👉 https://chat.whatsapp.com/Es6zmtqJlDtJMAwhNjLXj1?s=cl&p=a&ilr=1\n\n"
+            "👉 https://chat.whatsapp.com/CokjIkZ4Rns6ZzPlwyPQSf?s=cl&p=a&mlu=4&ilr=4\n\n"
 
             "*PROGRAMME DETAILS*\n"
             "*Start Date:* Tuesday, 6th October 2026\n"
