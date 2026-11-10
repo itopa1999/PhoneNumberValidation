@@ -48,13 +48,16 @@ class WordMailMergeEmailSender:
         )
 
         # ---------- Default body ----------
+        # {{ document }}  → Programme outline
+        # {{ document 2 }} → Brochure
         self.default_body = (
             "Dear Sir/Ma,\n\n"
             "Compliments of the day. I am sharing with you the call for nominations for our upcoming "
             "Project Management training programme for your kind consideration.\n\n"
             "We look forward to receiving nominations of officers from your organization to participate "
-            "in the training programme. Please find the brochure below:\n\n"
-            "📄 Brochure: {{ document }}\n\n"
+            "in the training programme. Please find the programme outline and brochure below:\n\n"
+            "📄 Programme Outline: {{ document }}\n\n"
+            "📄 Brochure: {{ document 2 }}\n\n"
             "Feel free to reach out with any enquiries.\n\n"
             "Kind regards,\n\n"
             "Olatipe Fasuyi\n\n"
@@ -75,22 +78,21 @@ class WordMailMergeEmailSender:
         self.pdf_engine = None
         self.soffice_path = None
 
+        # ---------- SMTP defaults (pre-filled) ----------
         self.smtp_config = {
             "server": "smtp.gmail.com",
             "port": 587,
-            "sender_email": "",
-            "sender_password": "",
+            "sender_email": "ibadanbusinessschool@gmail.com",
+            "sender_password": "rcip vwzx kxxh ybdx",
             "sender_name": "IBS-YEDP Team",
         }
 
         # ============================================================
         # SCROLLABLE ROOT
         # ============================================================
-        # Outer container fills the window
         outer = ttk.Frame(root)
         outer.pack(fill="both", expand=True)
 
-        # Canvas + vertical scrollbar
         self.canvas = tk.Canvas(outer, bg="#f0f4f8", highlightthickness=0)
         vscroll = ttk.Scrollbar(outer, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=vscroll.set)
@@ -98,23 +100,19 @@ class WordMailMergeEmailSender:
         vscroll.pack(side="right", fill="y")
         self.canvas.pack(side="left", fill="both", expand=True)
 
-        # Inner frame that actually holds widgets
         self.scroll_frame = ttk.Frame(self.canvas, padding="15")
         self.canvas_window = self.canvas.create_window(
             (0, 0), window=self.scroll_frame, anchor="nw"
         )
 
-        # Keep inner frame as wide as the canvas
         def _on_canvas_configure(event):
             self.canvas.itemconfig(self.canvas_window, width=event.width)
         self.canvas.bind("<Configure>", _on_canvas_configure)
 
-        # Update scrollregion when inner frame changes
         def _on_frame_configure(event):
             self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         self.scroll_frame.bind("<Configure>", _on_frame_configure)
 
-        # Mouse wheel scrolling — works on Windows, Mac, Linux
         def _on_mousewheel(event):
             delta = 0
             if event.num == 4:
@@ -132,7 +130,6 @@ class WordMailMergeEmailSender:
             widget.bind_all("<Button-4>", _on_mousewheel, add="+")
             widget.bind_all("<Button-5>", _on_mousewheel, add="+")
 
-        # Only scroll when the mouse is over the canvas area
         self.canvas.bind("<Enter>", lambda e: _bind_mousewheel(self.canvas))
         self.canvas.bind("<Leave>", lambda e: (
             self.canvas.unbind_all("<MouseWheel>"),
@@ -140,7 +137,6 @@ class WordMailMergeEmailSender:
             self.canvas.unbind_all("<Button-5>"),
         ))
 
-        # Now use scroll_frame as our "main"
         main = self.scroll_frame
 
         # ============================================================
@@ -167,12 +163,11 @@ class WordMailMergeEmailSender:
         ).pack(anchor="w", pady=(0, 10))
 
         # ============================================================
-        # TOP ROW: Word + Data pickers (side by side)
+        # TOP ROW: Word + Data pickers
         # ============================================================
         top_frame = ttk.Frame(main)
         top_frame.pack(fill="x", pady=5)
 
-        # --- Word picker ---
         word_frame = ttk.LabelFrame(top_frame, text="📄 Word Template (.docx)", padding=10)
         word_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
@@ -190,7 +185,6 @@ class WordMailMergeEmailSender:
                                      font=("Segoe UI", 9))
         self.word_status.pack(anchor="w", pady=2)
 
-        # --- Data picker ---
         data_frame = ttk.LabelFrame(top_frame, text="📊 Data File (Excel / CSV)", padding=10)
         data_frame.pack(side="left", fill="both", expand=True, padx=(5, 0))
 
@@ -218,12 +212,11 @@ class WordMailMergeEmailSender:
         self.data_status.pack(anchor="w", pady=2)
 
         # ============================================================
-        # PLACEHOLDERS + LINK COLUMNS + PDF ENGINE (side by side, compact)
+        # PLACEHOLDERS + LINK COLUMNS + PDF ENGINE
         # ============================================================
         info_row = ttk.Frame(main)
         info_row.pack(fill="x", pady=5)
 
-        # Placeholders
         ph_frame = ttk.LabelFrame(info_row, text="🔍 Detected Placeholders", padding=8)
         ph_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
@@ -237,7 +230,6 @@ class WordMailMergeEmailSender:
         )
         self.placeholder_label.pack(anchor="w")
 
-        # Link columns
         lk_frame = ttk.LabelFrame(info_row, text="🔗 Auto-linked Columns", padding=8)
         lk_frame.pack(side="left", fill="both", expand=True, padx=5)
 
@@ -251,7 +243,6 @@ class WordMailMergeEmailSender:
         )
         self.link_status.pack(anchor="w")
 
-        # PDF engine
         conv_frame = ttk.LabelFrame(info_row, text="🖨️ PDF Engine", padding=8)
         conv_frame.pack(side="left", fill="both", expand=True, padx=(5, 0))
 
@@ -311,12 +302,11 @@ class WordMailMergeEmailSender:
         ttk.Button(pdf_row, text="✖ Clear", command=self.clear_pdf).pack(side="left", padx=5)
 
         # ============================================================
-        # ACTION BUTTONS (all on one visible row)
+        # ACTION BUTTONS
         # ============================================================
         action_frame = ttk.LabelFrame(main, text="⚙️ Actions", padding=10)
         action_frame.pack(fill="x", pady=10)
 
-        # Row 1: primary actions
         row1 = ttk.Frame(action_frame)
         row1.pack(fill="x", pady=3)
 
@@ -332,7 +322,6 @@ class WordMailMergeEmailSender:
             style="Success.TButton",
         ).pack(side="left", padx=4)
 
-        # Row 2: secondary actions
         row2 = ttk.Frame(action_frame)
         row2.pack(fill="x", pady=3)
 
@@ -387,7 +376,7 @@ class WordMailMergeEmailSender:
         self.results_listbox.bind("<Double-Button-1>", self.preview_selected)
 
         # ============================================================
-        # STATUS BAR (at the bottom of the scrollable area)
+        # STATUS BAR
         # ============================================================
         self.status = ttk.Label(
             main, text="Ready", relief="sunken", anchor="w",
@@ -398,7 +387,6 @@ class WordMailMergeEmailSender:
 
         self.setup_styles()
 
-        # Recompute scrollregion after layout settles
         self.root.after(200, lambda: self.canvas.configure(
             scrollregion=self.canvas.bbox("all")
         ))
@@ -424,6 +412,31 @@ class WordMailMergeEmailSender:
         if not name:
             return False
         return bool(LINK_COLUMN_PATTERN.search(str(name)))
+
+    def _link_label(self, key: str) -> str:
+        """Context-aware label for a hyperlink, based on the column name."""
+        k = (key or "").lower().strip()
+        if "brochure" in k:
+            return "Click here to view the brochure"
+        # 'document 2' (or 'document2') → brochure (per the template convention)
+        if "document" in k and "2" in k:
+            return "Click here to view the brochure"
+        if "outline" in k:
+            return "Click here to view the programme outline"
+        # Plain 'document' → programme outline (per the template convention)
+        if k == "document":
+            return "Click here to view the programme outline"
+        if "document" in k:
+            return "Click here to view the document"
+        if "video" in k:
+            return "Click here to watch the video"
+        if "photo" in k or "image" in k:
+            return "Click here to view the image"
+        if "form" in k:
+            return "Click here to open the form"
+        if "folder" in k:
+            return "Click here to open the folder"
+        return "Click here to view"
 
     def normalize_url(self, url: str) -> str:
         if not url:
@@ -458,7 +471,7 @@ class WordMailMergeEmailSender:
         looks_like_url = bool(URL_PATTERN.search(sval))
         if looks_like_url:
             if self.is_link_column(key):
-                label = "Click here to view"
+                label = self._link_label(key)
             else:
                 label = sval
             return self.make_html_link(sval, label)
@@ -995,7 +1008,6 @@ class WordMailMergeEmailSender:
                 status_text += f" ⚠️ {pdf_failures} PDF conversion(s) failed."
             self.status.config(text=status_text)
 
-            # Update scrollregion after results
             self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
         except Exception as e:
@@ -1380,3 +1392,6 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = WordMailMergeEmailSender(root)
     root.mainloop()
+
+
+# rcip vwzx kxxh ybdx
