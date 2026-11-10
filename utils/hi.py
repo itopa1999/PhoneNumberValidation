@@ -84,7 +84,7 @@ class WordMailMergeEmailSender:
             "port": 587,
             "sender_email": "ibadanbusinessschool@gmail.com",
             "sender_password": "rcip vwzx kxxh ybdx",
-            "sender_name": "IBS-YEDP Team",
+            "sender_name": "Ibadan Business School Admissions Team",
         }
 
         # ============================================================
